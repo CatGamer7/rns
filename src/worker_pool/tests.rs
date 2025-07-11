@@ -1,5 +1,6 @@
 use super::*;
 use std::sync::mpsc::Sender;
+
 #[test]
 #[should_panic]
 /// Test n_worker range high retriction.

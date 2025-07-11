@@ -103,11 +103,11 @@ impl Pool {
 
     /// Sends callable to be executed by [Worker]s.
     /// 
-    /// Parameters
+    /// # Parameters
     /// callable - basically any closure, since it must implemments [FnOnce]
     /// (be any closure) and [Send] (to be shared with [Worker]).
     /// 
-    /// Example
+    /// # Example
     /// ```
     /// use rns::worker_pool::Pool;
     /// 
