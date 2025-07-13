@@ -1,6 +1,6 @@
 use std::{io::{BufRead, BufReader, Read, Write}, net::TcpStream};
 
-use crate::web::response::{Header, Response, ResponseCode, Versions};
+use crate::web::response::{Header, Response, ResponseCode, Versions, WebResult};
 
 #[derive(Debug)]
 struct StatusRequest {
@@ -10,7 +10,7 @@ struct StatusRequest {
 }
 
 impl StatusRequest {
-    fn build(line_str: String) -> Result<StatusRequest, ResponseCode> {
+    fn build(line_str: String) -> WebResult<StatusRequest> {
         Result::Err(
             ResponseCode::get_400()
         )
@@ -43,7 +43,7 @@ pub struct RequestBackend<T: Read + Write> {
 }
 
 impl<T: Read + Write> RequestBackend<T> {
-    pub fn build(mut stream: T) -> Result<RequestBackend<T>, ResponseCode> {
+    pub fn build(mut stream: T) -> WebResult<RequestBackend<T>> {
         let buf_reader = BufReader::new(&mut stream);
         let mut http_lines = buf_reader.lines();
 
@@ -94,6 +94,10 @@ impl<T: Read + Write> RequestBackend<T> {
 
     pub const fn get_body(&self) -> &Vec<u8> {
         &self.body
+    }
+
+    pub fn get_response_stream(&self) -> &T {
+        &self.response_stream
     }
 }
 

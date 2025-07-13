@@ -14,7 +14,7 @@ pub struct Header {
 
 impl Header {
     pub fn build(header_str: String) -> WebResult<Header> {
-        WebResult::Err(
+        Result::Err(
             ResponseCode::get_400()
         )
     }
@@ -129,7 +129,7 @@ impl PartialEq for ResponseCode {
 }
 
 /// Shorthand for crate-specific [Result]s
-type WebResult<T> = Result<T, ResponseCode>;
+pub type WebResult<T> = Result<T, ResponseCode>;
 
 pub struct StatusResponse {
     version: Versions,
