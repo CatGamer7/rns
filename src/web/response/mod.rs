@@ -1,14 +1,35 @@
-use std::net::TcpStream;
-
+#[derive(Debug)]
+#[derive(PartialEq)]
 pub enum Versions {
     Http1_1,
     Http2,
     Http3
 }
 
+#[derive(Debug)]
 pub struct Header {
     name: String,
     value: String
+}
+
+impl Header {
+    pub fn build(header_str: String) -> WebResult<Header> {
+        WebResult::Err(
+            ResponseCode::get_400()
+        )
+    }
+
+    pub const fn get_name(&self) -> &String {
+        &self.name
+    }
+
+    pub const fn get_value(&self) -> &String {
+        &self.value
+    }
+
+    pub fn to_http_str(&self) -> String {
+        format!("{}: {}", self.name, self.value)
+    }
 }
 
 /// Offers 2 variants for storing strings for [reason] field of [ResponseCode]
@@ -107,9 +128,21 @@ impl PartialEq for ResponseCode {
     }
 }
 
+/// Shorthand for crate-specific [Result]s
+type WebResult<T> = Result<T, ResponseCode>;
+
 pub struct StatusResponse {
     version: Versions,
     code: ResponseCode
+}
+
+impl StatusResponse {
+    pub fn new(version: Versions, code: ResponseCode) -> StatusResponse {
+        StatusResponse {
+            version: version,
+            code: code
+        }
+    }
 }
 
 pub struct Response {
@@ -119,8 +152,17 @@ pub struct Response {
 }
 
 impl Response {
-    /// Consumes self and writes its contents to a TCP stream.
-    pub fn respond(self, socket: &TcpStream) {
-        
+    pub fn new(
+        version: Versions, code: ResponseCode,
+        headers: Vec<Header>, body: Vec<u8>
+    ) -> Response {
+        Response { 
+            status_line: StatusResponse::new(version, code),
+            headers: headers,
+            body: body 
+        }
     }
 }
+
+#[cfg(test)]
+mod tests;

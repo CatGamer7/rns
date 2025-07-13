@@ -179,7 +179,7 @@ impl ServerBackend for PooledServer {
     }
 
     fn serve_request(socket: TcpStream, route_map: Arc<RouteMap>) {
-        let request = Request::build(&socket).unwrap();
+        let request = Request::build(socket).unwrap();
 
         if let Err(status) = <PooledServer as ServerBackend>::authenticate(&request) {
 
