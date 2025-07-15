@@ -7,12 +7,14 @@ use std::sync::mpsc::Sender;
 fn invalid_pool_high() {
     Pool::new(1024);
 }
+
 #[test]
 #[should_panic]
 /// Test n_worker range low retriction.
 fn invalid_pool_low() {
     Pool::new(0);
 }
+
 #[test]
 /// Test Pool with numerical computation.
 fn pool_work() {
@@ -37,6 +39,7 @@ fn pool_work() {
     }
     assert!(result == 15);
 }
+
 #[test]
 #[ignore]
 /// Test concurrent operation manually by stdout 
