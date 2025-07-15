@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug)]
 #[derive(PartialEq)]
 pub enum Versions {
@@ -14,8 +16,19 @@ pub struct Header {
 
 impl Header {
     pub fn build(header_str: String) -> WebResult<Header> {
-        Result::Err(
-            ResponseCode::get_400()
+        let parts: Vec<_> = header_str.split(":").collect();
+
+        if parts.len() < 2 {
+            return Result::Err(
+                ResponseCode::get_400()
+            )
+        }
+
+        Result::Ok(
+            Header {
+                name: parts[0].trim().to_string(),
+                value: parts[1].trim().to_string()
+            }
         )
     }
 
@@ -125,6 +138,15 @@ impl ResponseCode {
 impl PartialEq for ResponseCode {
     fn eq(&self, other: &Self) -> bool {
         self.code == other.code
+    }
+}
+
+impl Display for ResponseCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.reason {
+            ReasonStorageSpecifier::Static(st) => write!(f, "{} {}", self.code, st),
+            ReasonStorageSpecifier::Dynamic(st) => write!(f, "{} {}", self.code, st)
+        }
     }
 }
 

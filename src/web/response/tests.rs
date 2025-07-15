@@ -12,7 +12,7 @@ fn build_header() {
     assert!(header.to_http_str() == header_str);
 
     // Psychotic, but valid
-    let header_str = "Host: www.example.com ".to_string();
+    let header_str = "Host:www.example.com ".to_string();
     let header = Header::build(header_str.clone()).unwrap();
 
     assert!(header.get_name() == "Host");
