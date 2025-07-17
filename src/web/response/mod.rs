@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::{self, Display}, io::{Error, Read, Write}};
 
 #[derive(Debug)]
 #[derive(PartialEq)]
@@ -6,6 +6,16 @@ pub enum Versions {
     Http1_1,
     Http2,
     Http3
+}
+
+impl Display for Versions {
+    // Http versions above 1.1 are unlikely to be implemented
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Versions::Http1_1 => write!(f, "HTTP/1.1"),
+            _ => Result::Err(fmt::Error)
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -74,7 +84,7 @@ impl ResponseCode {
     pub const fn get_200() -> ResponseCode {
         ResponseCode {
             code: 200,
-            reason: ReasonStorageSpecifier::Static("Success")
+            reason: ReasonStorageSpecifier::Static("OK")
         }
     }
 
@@ -167,6 +177,12 @@ impl StatusResponse {
     }
 }
 
+impl Display for StatusResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} {}", self.version, self.code)
+    }
+}
+
 pub struct Response {
     status_line: StatusResponse,
     headers: Vec<Header>,
@@ -183,6 +199,51 @@ impl Response {
             headers: headers,
             body: body 
         }
+    }
+
+    fn get_status_line_str(&self) -> String {
+        self.status_line.to_string()
+    }
+
+    fn get_headers_str(&self) -> impl Iterator<Item = String> {
+        self.headers.iter().map(|header| header.to_http_str())
+    }
+
+    fn get_body(&self) -> &Vec<u8> {
+        &self.body
+    }
+
+    /// Writes own contents to the provided stream.
+    /// [Result] will return [Err] on any IO failure.
+    pub fn respond<T: Read + Write>(&self, stream: &mut T) -> Result<(), Error> {
+        // Write status
+        let status = self.get_status_line_str();
+        stream.write_all(status.as_bytes())?;
+        stream.write_all("\r\n".as_bytes())?;
+
+        // Write headers
+        for header_str in self.get_headers_str() {
+            stream.write_all(header_str.as_bytes())?;
+            stream.write_all("\r\n".as_bytes())?;
+        };
+
+        // End headers
+        stream.write_all("\r\n".as_bytes())?;
+
+        // Write body
+        stream.write_all(self.get_body())?;
+
+        Result::Ok(())
+    }
+
+    /// A shorthand to send just the code in response with a IO related [Result].
+    pub fn respond_code<T: Read + Write>(
+        version: Versions,
+        code: ResponseCode,
+        stream: &mut T
+    ) -> Result<(), Error> {
+        let response = Response::new(version, code, Vec::new(), Vec::new());
+        response.respond(stream)
     }
 }
 

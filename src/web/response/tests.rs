@@ -1,4 +1,6 @@
-use crate::web::response::{Header, ResponseCode};
+use std::io::{Cursor, Read, Seek, SeekFrom};
+
+use crate::web::response::{Header, Response, ResponseCode, Versions};
 
 #[test]
 /// Test [Header] build method in normal operation.
@@ -43,4 +45,42 @@ fn response_code_equality() {
     assert!(code_1 == code_3);
     assert!(code_1 != code_2);
     assert!(code_2 != code_3);
+}
+
+type MockStream = Cursor<Vec<u8>>;
+
+#[test]
+/// Test respond method.
+fn respond() {
+    let mut stream: MockStream = Cursor::new(
+        Vec::new()
+    );
+
+    let resp = Response::new(
+        Versions::Http1_1,
+        ResponseCode::get_200(),
+        vec![
+            Header::build(
+                "Content-Type: text/plain".to_string()
+            ).unwrap(),
+            Header::build(
+                "Content-Length: 5".to_string()
+            ).unwrap()
+        ],
+        Vec::from(
+            "Hello"
+        )
+    );
+    resp.respond(&mut stream).unwrap();
+
+    // Test response that was written.
+    let mut buf = Vec::new();
+    stream.seek(SeekFrom::Start(0)).unwrap();
+    stream.read_to_end(&mut buf).unwrap();
+    
+    let actual_resp = Vec::from(
+        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nHello".as_bytes()
+    );
+
+    assert!(buf == actual_resp);
 }

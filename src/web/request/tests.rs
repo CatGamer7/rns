@@ -7,7 +7,6 @@ use crate::web::{request::{RequestBackend, StatusRequest}, response::{Header, Re
 fn build_status_request() {
     let status_str = "GET /test HTTP/1.1".to_string();
     let status_req = StatusRequest::build(status_str).unwrap();
-    assert!(status_req.get_resourse_and_method() == "GET /test");
     assert!(*status_req.get_version() == Versions::Http1_1);
 }
 
@@ -81,7 +80,7 @@ fn build_request_fail() {
 }
 
 #[test]
-/// Test [RequestBackend] respond method.
+/// Test [RequestBackend] respond method that delegates to [Response]'s method.
 fn respond() {
     let stream: MockStream = Cursor::new(
         Vec::from(
@@ -111,7 +110,7 @@ fn respond() {
             "Hello"
         )
     );
-    req.respond(&resp);
+    req.respond(&resp).unwrap();
 
     // Test response that was written.
     let mut buf = Vec::new();
@@ -119,7 +118,8 @@ fn respond() {
     stream_copy.seek(SeekFrom::Start(0)).unwrap();
     stream_copy.read_to_end(&mut buf).unwrap();
     let actual_resp = Vec::from(
-        "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nHello".as_bytes()
+        "GET /test HTTP/1.1\r\nHost: www.example.com\r\nAccept-Language: en\r\n\r\n{\"meow\": 1}\
+        HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 5\r\n\r\nHello".as_bytes()
     );
 
     assert!(buf == actual_resp);

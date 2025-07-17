@@ -1,4 +1,4 @@
-use std::{io::{BufRead, BufReader, Read, Write}, net::TcpStream};
+use std::{io::{BufRead, BufReader, Error, Read, Write}, net::TcpStream};
 
 use crate::web::response::{Header, Response, ResponseCode, Versions, WebResult};
 
@@ -10,6 +10,11 @@ struct StatusRequest {
 }
 
 impl StatusRequest {
+    /// Builds the [StatusRequest] based on the string representation.
+    /// Returns [ResponseCode] of 400 (HTTP 400) on fail.
+    /// 
+    /// # Parameters
+    /// line_str - a string representation with no \r\n at the end.
     fn build(line_str: String) -> WebResult<StatusRequest> {
         let parts: Vec<_> = line_str.split_whitespace().collect();
 
@@ -36,11 +41,6 @@ impl StatusRequest {
         )
     }
 
-    /// Returns a unified representation of a method and uri combo.
-    pub fn get_resourse_and_method(&self) -> String {
-        format!("{} {}", self.method, self.uri)
-    }
-
     pub const fn get_method(&self) -> &String {
         &self.method
     }
@@ -63,6 +63,17 @@ pub struct RequestBackend<T: Read + Write> {
 }
 
 impl<T: Read + Write> RequestBackend<T> {
+    /// Attempt to build the request. Since the stream is consumed by the function,
+    /// a simple http response will be sent to a client in case of failure
+    /// (mainly HTTP 400 due to the request not adhereing to standard, although
+    /// HTTP 500 is also possible if server suffers IO failure).
+    /// 
+    /// # Parameters
+    /// stream - usually a [TcpStream] for a web server. Although, trait bounds are
+    /// quite abstract to allow for all kinds of streams (useful in testing).
+    /// 
+    /// # Examples
+    /// Example is quite bulky for a docstring so kindly refer to the unit tests.
     pub fn build(mut stream: T) -> WebResult<RequestBackend<T>> {
         let mut buf_reader = BufReader::new(&mut stream);
         let mut http_lines = buf_reader.by_ref().lines();
@@ -73,16 +84,35 @@ impl<T: Read + Write> RequestBackend<T> {
         // 3. Check if read is successful.
         // 4. Delegate to StatusRequest::build().
         let status_str = match http_lines.next() {
-            None => return Result::Err(
-                ResponseCode::get_400()
-            ),
+            None => {                
+                let respond_result = Response::respond_code(
+                    Versions::Http1_1, 
+                    ResponseCode::get_400(), 
+                    &mut stream
+                );
+                return match respond_result {
+                    Ok(_) => Result::Err(
+                        ResponseCode::get_400()
+                    ),
+                    Err(_) => Result::Err(
+                        ResponseCode::get_500()
+                    ),
+                }
+            },
             Some(res) => res
         };
         let status_str = match status_str {
             Ok(s) => s,
-            Err(_) => return Result::Err(
-                ResponseCode::get_500() // Why would read fail here?
-            )
+            Err(_) => { // Why would read fail here?
+                let _ = Response::respond_code(
+                    Versions::Http1_1, 
+                    ResponseCode::get_500(), 
+                    &mut stream
+                );
+                return Result::Err(
+                    ResponseCode::get_500()
+                )
+            }
         };
         let status_line = StatusRequest::build(status_str)?;
 
@@ -92,9 +122,16 @@ impl<T: Read + Write> RequestBackend<T> {
         for line_res in http_lines {
             let line = match line_res {
                 Ok(s) => s,
-                Err(_) => return Result::Err(
-                    ResponseCode::get_500() // Why would read fail here?
-                )
+                Err(_) => { // Why would read fail here?
+                    let _ = Response::respond_code(
+                        Versions::Http1_1, 
+                        ResponseCode::get_500(), 
+                        &mut stream
+                    );
+                    return Result::Err(
+                        ResponseCode::get_500()
+                    )
+                }
             };
 
             // Must see cr, nl after all headers
@@ -109,16 +146,31 @@ impl<T: Read + Write> RequestBackend<T> {
 
         // Must see cr, nl after all headers
         if !cr_lf_consumed {
-            return Result::Err(
-                ResponseCode::get_400()
-            )
+            let respond_result = Response::respond_code(
+                Versions::Http1_1, 
+                ResponseCode::get_400(), 
+                &mut stream
+            );
+            return match respond_result {
+                Ok(_) => Result::Err(
+                    ResponseCode::get_400()
+                ),
+                Err(_) => Result::Err(
+                    ResponseCode::get_500()
+                ),
+            }
         };
         
         // Collect the request body
         let mut body = Vec::new();
-        if let Result::Err(_) = buf_reader.read_to_end(&mut body) {
+        if let Result::Err(_) = buf_reader.read_to_end(&mut body) { // Why would read fail here?
+            let _ = Response::respond_code(
+                Versions::Http1_1, 
+                ResponseCode::get_500(), 
+                &mut stream
+            );
             return Result::Err(
-                ResponseCode::get_500() // Why would read fail here?
+                ResponseCode::get_500()
             )
         };
         
@@ -132,21 +184,21 @@ impl<T: Read + Write> RequestBackend<T> {
         )
     }
 
-    /// Send the responnse with stored [response_socket].
-    pub fn respond(&mut self, response: &Response) {
-        
+    /// Send the response with the stored [response_stream].
+    pub fn respond(&mut self, response: &Response) -> Result<(), Error> {
+        response.respond(&mut self.response_stream)
     }
     
     pub const fn get_method(&self) -> &String {
-        &self.status_line.method
+        &self.status_line.get_method()
     }
 
     pub const fn get_uri(&self) -> &String {
-        &self.status_line.uri
+        &self.status_line.get_uri()
     }
 
     pub const fn get_version(&self) -> &Versions {
-        &self.status_line.version
+        &self.status_line.get_version()
     }
 
     pub const fn get_headers(&self) -> &Vec<Header> {
@@ -162,6 +214,7 @@ impl<T: Read + Write> RequestBackend<T> {
     }
 }
 
+/// A most useful shorthand for HTTP server
 pub type Request = RequestBackend<TcpStream>;
 
 #[cfg(test)]
