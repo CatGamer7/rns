@@ -7,10 +7,10 @@ use super::*;
 fn route_map_single() {
     let mut route_map = RouteMap::new();
 
-    fn dummy_function(request: Request) {}
+    fn dummy_function(_request: Request) {}
 
     let fn_ptr = Arc::new(dummy_function);
-    let cl_ptr = Arc::new(|request: Request| {});
+    let cl_ptr = Arc::new(|_request: Request| {});
 
     let uri_1 = "/test-fn".to_string();
     let uri_2 = "/test-cl".to_string();
@@ -27,11 +27,11 @@ fn route_map_single() {
         cl_ptr
     );
 
-    let fn_ptr_return = route_map.get_action(
+    route_map.get_action(
         &uri_1, 
         &method
     ).unwrap();
-    let cl_ptr_return = route_map.get_action(
+    route_map.get_action(
         &uri_1, 
         &method
     ).unwrap();
@@ -42,9 +42,7 @@ fn route_map_single() {
 fn route_map_multi() {
     let mut route_map = RouteMap::new();
 
-    fn dummy_function(request: Request) {
-
-    }
+    fn dummy_function(_request: Request) {}
 
     let fn_ptr = Arc::new(dummy_function);
     let uri = "/test-fn".to_string();
@@ -55,11 +53,11 @@ fn route_map_multi() {
 
     route_map.insert_route_methods(uri.clone(), &mut methods, fn_ptr);
     
-    let fn_ptr_return_1 = route_map.get_action(
+    route_map.get_action(
         &uri, 
         &"GET".to_string()
     ).unwrap();
-    let fn_ptr_return_2 = route_map.get_action(
+    route_map.get_action(
         &uri, 
         &"POST".to_string()
     ).unwrap();
@@ -70,9 +68,7 @@ fn route_map_multi() {
 fn route_map_negative() {
     let mut route_map = RouteMap::new();
 
-    fn dummy_function(request: Request) {
-
-    }
+    fn dummy_function(_request: Request) {}
 
     let fn_ptr = Arc::new(dummy_function);
     let uri = "/test-fn".to_string();
@@ -81,7 +77,7 @@ fn route_map_negative() {
     route_map.insert_route(uri.clone(), method, fn_ptr);
     
     // Should return action
-    let fn_ptr_return_1 = route_map.get_action(
+    route_map.get_action(
         &uri, 
         &"GET".to_string()
     ).unwrap();
